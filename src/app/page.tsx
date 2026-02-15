@@ -34,6 +34,9 @@ export default function Home() {
   const isUndoingRef = useRef(false);
 
   const [isInMiniApp, setIsInMiniApp] = useState<boolean | null>(null);
+  const [user, setUser] = useState<Awaited<typeof sdk.context>["user"] | null>(
+    null,
+  );
 
   //farcaster initialization
   useEffect(() => {
@@ -42,11 +45,23 @@ export default function Home() {
 
   // Check if user is in miniapp
   useEffect(() => {
-    const checkMiniApp = async () => {
-      const isMini = await sdk.isInMiniApp();
-      setIsInMiniApp(isMini);
+    const loadUserData = async () => {
+      try {
+        // Check if we're in a Mini App
+        const miniAppStatus = await sdk.isInMiniApp();
+        setIsInMiniApp(miniAppStatus);
+
+        if (miniAppStatus) {
+          // Get context and extract user info
+          const context = await sdk.context;
+          setUser(context.user);
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error);
+      }
     };
-    checkMiniApp();
+
+    loadUserData();
   }, []);
 
   // Bind events for history and selection
@@ -235,7 +250,7 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
-  if (isInMiniApp === false) {
+  if (!isInMiniApp) {
     return (
       <div className="flex fixed inset-0 z-50 bg-slate-900 text-white flex-col items-center justify-center p-8 text-center">
         <div className="w-32 h-32 mb-6 rounded-3xl bg-slate-800 flex items-center justify-center shadow-2xl p-6">
@@ -253,7 +268,7 @@ export default function Home() {
     );
   }
 
-  if (isInMiniApp === null) {
+  if (!user) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-gray-100 text-gray-500">
         Loading...
