@@ -14,18 +14,24 @@ const geistMono = Geist_Mono({
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
+    title: "AuraSynQ",
+    description: "A minimalist digital painting mini-app on base app",
+    creator: "Kurays",
+    authors: [{ name: "Kurays" }],
     other: {
-      'fc:miniapp': JSON.stringify({
-        version: 'next',
-        imageUrl: 'https://lavender-tropical-takin-516.mypinata.cloud/ipfs/bafkreifcdfiwuucelgpyqcwkk37w6twb7e65cj45a62chp22t5mtszy2gq',
+      "fc:miniapp": JSON.stringify({
+        version: "next",
+        imageUrl:
+          "https://lavender-tropical-takin-516.mypinata.cloud/ipfs/bafkreifcdfiwuucelgpyqcwkk37w6twb7e65cj45a62chp22t5mtszy2gq",
         button: {
           title: `Launch AuraSynQ`,
           action: {
-            type: 'launch_miniapp',
-            name: 'AuraSynQ',
-            url: 'https://aurasynq.vercel.app',
-            splashImageUrl: 'https://lavender-tropical-takin-516.mypinata.cloud/ipfs/bafkreifcdfiwuucelgpyqcwkk37w6twb7e65cj45a62chp22t5mtszy2gq',
-            splashBackgroundColor: '#000000',
+            type: "launch_miniapp",
+            name: "AuraSynQ",
+            url: "https://aurasynq.vercel.app",
+            splashImageUrl:
+              "https://lavender-tropical-takin-516.mypinata.cloud/ipfs/bafkreifcdfiwuucelgpyqcwkk37w6twb7e65cj45a62chp22t5mtszy2gq",
+            splashBackgroundColor: "#000000",
           },
         },
       }),
