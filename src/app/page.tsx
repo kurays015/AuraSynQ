@@ -1,5 +1,6 @@
 "use client"
 
+import sdk from '@farcaster/miniapp-sdk'
 import dynamic from 'next/dynamic'
 import React, { useState, useRef, useEffect } from 'react'
 
@@ -25,6 +26,11 @@ export default function Home() {
     // History State
     const [history, setHistory] = useState<string[]>([])
     const isUndoingRef = useRef(false)
+
+    //farcaster initialization
+    useEffect(() => {
+        sdk.actions.ready();
+    }, []);
 
     // Bind events for history and selection
     useEffect(() => {

@@ -12,10 +12,26 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "AuraSynQ",
-  description: "A minimalist digital painting application.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    other: {
+      'fc:miniapp': JSON.stringify({
+        version: 'next',
+        imageUrl: 'https://lavender-tropical-takin-516.mypinata.cloud/ipfs/bafkreifcdfiwuucelgpyqcwkk37w6twb7e65cj45a62chp22t5mtszy2gq',
+        button: {
+          title: `Launch AuraSynQ`,
+          action: {
+            type: 'launch_miniapp',
+            name: 'AuraSynQ',
+            url: 'https://aurasynq.vercel.app',
+            splashImageUrl: 'https://lavender-tropical-takin-516.mypinata.cloud/ipfs/bafkreifcdfiwuucelgpyqcwkk37w6twb7e65cj45a62chp22t5mtszy2gq',
+            splashBackgroundColor: '#000000',
+          },
+        },
+      }),
+    },
+  };
+}
 
 export default function RootLayout({
   children,
