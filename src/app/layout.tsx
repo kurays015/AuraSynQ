@@ -19,6 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
     creator: "Kurays",
     authors: [{ name: "Kurays" }],
     other: {
+      "base:app_id": "698af51ae1a5644e788acda3",
       "fc:miniapp": JSON.stringify({
         version: "next",
         imageUrl:
