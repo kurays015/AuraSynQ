@@ -35,6 +35,11 @@ export default function Home() {
 
   const [isInMiniApp, setIsInMiniApp] = useState<boolean | null>(null);
 
+  //farcaster initialization
+  useEffect(() => {
+    sdk.actions.ready();
+  }, []);
+
   // Check if user is in miniapp
   useEffect(() => {
     const checkMiniApp = async () => {
@@ -42,11 +47,6 @@ export default function Home() {
       setIsInMiniApp(isMini);
     };
     checkMiniApp();
-  }, []);
-
-  //farcaster initialization
-  useEffect(() => {
-    sdk.actions.ready();
   }, []);
 
   // Bind events for history and selection
