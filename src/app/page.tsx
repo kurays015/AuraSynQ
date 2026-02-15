@@ -33,36 +33,36 @@ export default function Home() {
   const [history, setHistory] = useState<string[]>([]);
   const isUndoingRef = useRef(false);
 
-  const [isInMiniApp, setIsInMiniApp] = useState<boolean | null>(null);
-  const [user, setUser] = useState<Awaited<typeof sdk.context>["user"] | null>(
-    null,
-  );
+  //   const [isInMiniApp, setIsInMiniApp] = useState<boolean | null>(null);
+  //   const [user, setUser] = useState<Awaited<typeof sdk.context>["user"] | null>(
+  //     null,
+  //   );
 
   //farcaster initialization
   useEffect(() => {
     sdk.actions.ready();
   }, []);
 
-  // Check if user is in miniapp
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        // Check if we're in a Mini App
-        const miniAppStatus = await sdk.isInMiniApp();
-        setIsInMiniApp(miniAppStatus);
+  //   // Check if user is in miniapp
+  //   useEffect(() => {
+  //     const loadUserData = async () => {
+  //       try {
+  //         // Check if we're in a Mini App
+  //         const miniAppStatus = await sdk.isInMiniApp();
+  //         setIsInMiniApp(miniAppStatus);
 
-        if (miniAppStatus) {
-          // Get context and extract user info
-          const context = await sdk.context;
-          setUser(context.user);
-        }
-      } catch (error) {
-        console.error("Error loading user data:", error);
-      }
-    };
+  //         if (miniAppStatus) {
+  //           // Get context and extract user info
+  //           const context = await sdk.context;
+  //           setUser(context.user);
+  //         }
+  //       } catch (error) {
+  //         console.error("Error loading user data:", error);
+  //       }
+  //     };
 
-    loadUserData();
-  }, []);
+  //     loadUserData();
+  //   }, []);
 
   // Bind events for history and selection
   useEffect(() => {
@@ -250,31 +250,31 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
-  if (!isInMiniApp) {
-    return (
-      <div className="flex fixed inset-0 z-50 bg-slate-900 text-white flex-col items-center justify-center p-8 text-center">
-        <div className="w-32 h-32 mb-6 rounded-3xl bg-slate-800 flex items-center justify-center shadow-2xl p-6">
-          <img
-            src="/icon.png"
-            alt="Aura Logo"
-            className="w-full h-full object-contain drop-shadow-lg"
-          />
-        </div>
-        <h1 className="text-4xl font-bold mb-2">Access Restricted</h1>
-        <p className="text-slate-400 max-w-md text-lg">
-          Please open this app in the Base app.
-        </p>
-      </div>
-    );
-  }
+  //   if (!isInMiniApp) {
+  //     return (
+  //       <div className="flex fixed inset-0 z-50 bg-slate-900 text-white flex-col items-center justify-center p-8 text-center">
+  //         <div className="w-32 h-32 mb-6 rounded-3xl bg-slate-800 flex items-center justify-center shadow-2xl p-6">
+  //           <img
+  //             src="/icon.png"
+  //             alt="Aura Logo"
+  //             className="w-full h-full object-contain drop-shadow-lg"
+  //           />
+  //         </div>
+  //         <h1 className="text-4xl font-bold mb-2">Access Restricted</h1>
+  //         <p className="text-slate-400 max-w-md text-lg">
+  //           Please open this app in the Base app.
+  //         </p>
+  //       </div>
+  //     );
+  //   }
 
-  if (!user) {
-    return (
-      <div className="w-full h-screen flex items-center justify-center bg-gray-100 text-gray-500">
-        Loading...
-      </div>
-    );
-  }
+  //   if (!user) {
+  //     return (
+  //       <div className="w-full h-screen flex items-center justify-center bg-gray-100 text-gray-500">
+  //         Loading...
+  //       </div>
+  //     );
+  //   }
 
   return (
     <main className="relative w-full h-screen overflow-hidden font-sans selection:bg-indigo-500 selection:text-white bg-gray-100 text-slate-800">
