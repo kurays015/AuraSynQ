@@ -33,36 +33,43 @@ export default function Home() {
   const [history, setHistory] = useState<string[]>([]);
   const isUndoingRef = useRef(false);
 
-  //   const [isInMiniApp, setIsInMiniApp] = useState<boolean | null>(null);
-  //   const [user, setUser] = useState<Awaited<typeof sdk.context>["user"] | null>(
-  //     null,
-  //   );
+  const [isInMiniApp, setIsInMiniApp] = useState<boolean | null>(null);
+  const [user, setUser] = useState<Awaited<typeof sdk.context>["user"] | null>(
+    null,
+  );
+  const [initError, setInitError] = useState<string>("");
 
-  //farcaster initialization
+  // Farcaster MiniApp initialization
   useEffect(() => {
-    sdk.actions.ready();
+    let isMounted = true;
+
+    const init = async () => {
+      try {
+        sdk.actions.ready();
+        const inMiniApp = await sdk.isInMiniApp();
+        if (!isMounted) return;
+
+        setIsInMiniApp(inMiniApp);
+
+        if (inMiniApp) {
+          const context = await sdk.context;
+          if (!isMounted) return;
+          setUser(context.user ?? null);
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        setInitError(
+          err instanceof Error ? err.message : "Mini-app init failed.",
+        );
+        console.error("[AuraSynQ] Init error:", err);
+      }
+    };
+
+    init();
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  //   // Check if user is in miniapp
-  //   useEffect(() => {
-  //     const loadUserData = async () => {
-  //       try {
-  //         // Check if we're in a Mini App
-  //         const miniAppStatus = await sdk.isInMiniApp();
-  //         setIsInMiniApp(miniAppStatus);
-
-  //         if (miniAppStatus) {
-  //           // Get context and extract user info
-  //           const context = await sdk.context;
-  //           setUser(context.user);
-  //         }
-  //       } catch (error) {
-  //         console.error("Error loading user data:", error);
-  //       }
-  //     };
-
-  //     loadUserData();
-  //   }, []);
 
   // Bind events for history and selection
   useEffect(() => {
@@ -250,31 +257,86 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
-  //   if (!isInMiniApp) {
-  //     return (
-  //       <div className="flex fixed inset-0 z-50 bg-slate-900 text-white flex-col items-center justify-center p-8 text-center">
-  //         <div className="w-32 h-32 mb-6 rounded-3xl bg-slate-800 flex items-center justify-center shadow-2xl p-6">
-  //           <img
-  //             src="/icon.png"
-  //             alt="Aura Logo"
-  //             className="w-full h-full object-contain drop-shadow-lg"
-  //           />
-  //         </div>
-  //         <h1 className="text-4xl font-bold mb-2">Access Restricted</h1>
-  //         <p className="text-slate-400 max-w-md text-lg">
-  //           Please open this app in the Base app.
-  //         </p>
-  //       </div>
-  //     );
-  //   }
+  // Still detecting environment
+  if (isInMiniApp === null && !initError) {
+    return (
+      <div className="flex fixed inset-0 z-50 bg-slate-950 text-white flex-col items-center justify-center gap-5">
+        <div className="w-20 h-20 rounded-2xl bg-slate-800/80 border border-slate-700 shadow-2xl flex items-center justify-center p-3 animate-pulse">
+          <img
+            src="/icon.png"
+            alt="AuraSynQ"
+            className="w-full h-full object-contain"
+          />
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <p className="text-slate-300 text-sm font-medium tracking-wide">
+            Initializing AuraSynQ…
+          </p>
+          <div className="flex gap-1.5 mt-1">
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce"
+              style={{ animationDelay: "0ms" }}
+            />
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce"
+              style={{ animationDelay: "150ms" }}
+            />
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce"
+              style={{ animationDelay: "300ms" }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  //   if (!user) {
-  //     return (
-  //       <div className="w-full h-screen flex items-center justify-center bg-gray-100 text-gray-500">
-  //         Loading...
-  //       </div>
-  //     );
-  //   }
+  // Not inside Farcaster MiniApp
+  if (!isInMiniApp || initError) {
+    return (
+      <div className="flex fixed inset-0 z-50 bg-slate-950 text-white flex-col items-center justify-center p-8 text-center gap-6">
+        <div className="relative">
+          <div className="absolute inset-0 rounded-3xl bg-indigo-500/20 blur-2xl scale-110" />
+          <div className="relative w-28 h-28 rounded-3xl bg-slate-800/90 border border-slate-700 shadow-2xl flex items-center justify-center p-5">
+            <img
+              src="/icon.png"
+              alt="AuraSynQ"
+              className="w-full h-full object-contain drop-shadow-lg"
+            />
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="text-3xl font-bold tracking-tight">
+            Access Restricted
+          </h1>
+          <p className="text-slate-400 max-w-xs text-sm leading-relaxed">
+            {initError
+              ? initError
+              : "AuraSynQ is only available inside the Farcaster app. Open it there to continue."}
+          </p>
+        </div>
+        <div className="px-4 py-2 rounded-full border border-slate-700 bg-slate-800/60 text-xs text-slate-500 font-mono">
+          farcaster://miniapp
+        </div>
+      </div>
+    );
+  }
+
+  // Inside MiniApp but user context not yet loaded
+  if (!user) {
+    return (
+      <div className="flex fixed inset-0 z-50 bg-slate-950 text-white flex-col items-center justify-center gap-5">
+        <div className="w-20 h-20 rounded-2xl bg-slate-800/80 border border-slate-700 shadow-2xl flex items-center justify-center p-3 animate-pulse">
+          <img
+            src="/icon.png"
+            alt="AuraSynQ"
+            className="w-full h-full object-contain"
+          />
+        </div>
+        <p className="text-slate-400 text-sm">Loading your profile…</p>
+      </div>
+    );
+  }
 
   return (
     <main className="relative w-full h-screen overflow-hidden font-sans selection:bg-indigo-500 selection:text-white bg-gray-100 text-slate-800">
