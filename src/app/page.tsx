@@ -40,7 +40,7 @@ export default function Home() {
   );
   const [initError, setInitError] = useState<string>("");
 
-  // Farcaster MiniApp initialization
+  // Base App initialization
   useEffect(() => {
     let isMounted = true;
 
@@ -292,7 +292,7 @@ export default function Home() {
     );
   }
 
-  // Not inside Farcaster MiniApp
+  // Not inside Base App
   if (!isInMiniApp || initError) {
     return (
       <div className="flex fixed inset-0 z-50 bg-slate-950 text-white flex-col items-center justify-center p-8 text-center gap-6">
