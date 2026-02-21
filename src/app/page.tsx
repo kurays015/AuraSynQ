@@ -26,14 +26,15 @@ export default function Home() {
   const [canvasInstance, setCanvasInstance] = useState<any>(null);
 
   // UI State
-  const [zoom, setZoom] = useState(0.5);
   const [showUI, setShowUI] = useState(true);
   const [selectedObject, setSelectedObject] = useState<any>(null);
   const [isLocked, setIsLocked] = useState(false);
 
   // History State
   const [history, setHistory] = useState<string[]>([]);
+  const [redoStack, setRedoStack] = useState<string[]>([]);
   const isUndoingRef = useRef(false);
+  const isRedoingRef = useRef(false);
 
   // Gallery State
   const [currentArtworkId, setCurrentArtworkId] = useState<string | null>(null);
@@ -89,7 +90,7 @@ export default function Home() {
     setHistory([initialState]);
 
     const saveToHistory = () => {
-      if (isUndoingRef.current) return;
+      if (isUndoingRef.current || isRedoingRef.current) return;
 
       const json = JSON.stringify(canvasInstance.toJSON());
       setHistory((prev) => {
@@ -99,6 +100,8 @@ export default function Home() {
           return newHistory.slice(newHistory.length - 50);
         return newHistory;
       });
+      // Any new action invalidates the redo stack
+      setRedoStack([]);
     };
 
     const updateSelection = () => {
@@ -147,14 +150,31 @@ export default function Home() {
 
     isUndoingRef.current = true;
     const newHistory = [...history];
-    newHistory.pop(); // Remove current state
+    const poppedState = newHistory.pop()!; // state we're leaving
     const previousState = newHistory[newHistory.length - 1];
 
     setHistory(newHistory);
+    setRedoStack((prev) => [...prev, poppedState]); // save for redo
 
     canvasInstance.loadFromJSON(previousState, () => {
       canvasInstance.renderAll();
       isUndoingRef.current = false;
+    });
+  };
+
+  const handleRedo = () => {
+    if (!canvasInstance || redoStack.length === 0) return;
+
+    isRedoingRef.current = true;
+    const newRedoStack = [...redoStack];
+    const nextState = newRedoStack.pop()!;
+
+    setRedoStack(newRedoStack);
+    setHistory((prev) => [...prev, nextState]);
+
+    canvasInstance.loadFromJSON(nextState, () => {
+      canvasInstance.renderAll();
+      isRedoingRef.current = false;
     });
   };
 
@@ -215,19 +235,6 @@ export default function Home() {
 
     // Trigger the PaintCanvas enforcement immediately
     canvasInstance.fire("object:modified");
-  };
-
-  // Zoom Logic
-  const handleZoom = (factor: number) => {
-    if (!canvasInstance) return;
-    let newZoom = zoom + factor;
-    if (newZoom < 0.5) newZoom = 0.5;
-    if (newZoom > 3) newZoom = 3;
-    newZoom = Math.round(newZoom * 10) / 10;
-
-    setZoom(newZoom);
-    canvasInstance.setZoom(newZoom);
-    canvasInstance.renderAll();
   };
 
   const handleExport = () => {
@@ -456,7 +463,7 @@ export default function Home() {
       >
         {/* Main Toolbar */}
         <div className="bg-slate-900/95 backdrop-blur-md p-2 rounded-2xl shadow-xl border border-slate-700 flex flex-col gap-1.5 w-12 items-center text-slate-200">
-          {/* Undo / Clear */}
+          {/* Undo / Redo / Clear */}
           <div className="flex flex-col gap-1 w-full pb-1.5 border-b border-slate-700/50">
             <button
               onClick={handleUndo}
@@ -477,6 +484,27 @@ export default function Home() {
               >
                 <path d="M3 7v6h6" />
                 <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+              </svg>
+            </button>
+            <button
+              onClick={handleRedo}
+              title="Redo"
+              disabled={redoStack.length === 0}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${redoStack.length > 0 ? "bg-slate-800 hover:bg-slate-700 text-white" : "text-slate-600 cursor-not-allowed"}`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 7v6h-6" />
+                <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13" />
               </svg>
             </button>
             <button
@@ -895,30 +923,6 @@ export default function Home() {
               </div>
             </>
           )}
-        </div>
-      </div>
-
-      {/* --- BOTTOM RIGHT: ZOOM ACTIONS --- */}
-      <div
-        className={`absolute bottom-6 right-6 z-20 transition-all duration-300 ease-in-out ${showUI ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"}`}
-      >
-        <div className="bg-slate-900/90 backdrop-blur-md p-2 rounded-full shadow-xl border border-slate-700 flex items-center gap-2">
-          <button
-            onClick={() => handleZoom(-0.1)}
-            disabled={zoom <= 0.5}
-            className={`w-8 h-8 rounded-full flex items-center justify-center bg-slate-800 text-white font-bold transition-all ${zoom <= 0.5 ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-700"}`}
-          >
-            -
-          </button>
-          <span className="w-12 text-center text-xs font-mono text-slate-300">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            onClick={() => handleZoom(0.1)}
-            className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-800 text-white hover:bg-slate-700 font-bold"
-          >
-            +
-          </button>
         </div>
       </div>
 
