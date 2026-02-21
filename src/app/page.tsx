@@ -2,8 +2,9 @@
 
 import sdk from "@farcaster/miniapp-sdk";
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import GalleryModal from "@/components/Gallery/GalleryModal";
+import { useArtworkStorage } from "@/hooks/useArtworkStorage";
 
 // Dynamic import for Canvas to avoid SSR issues with Fabric.js
 const PaintCanvas = dynamic(() => import("@/components/Canvas/PaintCanvas"), {
@@ -34,11 +35,18 @@ export default function Home() {
   const [history, setHistory] = useState<string[]>([]);
   const isUndoingRef = useRef(false);
 
+  // Gallery State
+  const [currentArtworkId, setCurrentArtworkId] = useState<string | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
+  const [saveToast, setSaveToast] = useState<"" | "saving" | "saved">("");
+  const { artworks, saveArtwork, deleteArtwork } = useArtworkStorage();
+
   const [isInMiniApp, setIsInMiniApp] = useState<boolean | null>(null);
   const [user, setUser] = useState<Awaited<typeof sdk.context>["user"] | null>(
     null,
   );
   const [initError, setInitError] = useState<string>("");
+  const production = process.env.NODE_ENV === "production" ? true : false;
 
   // Base App initialization
   useEffect(() => {
@@ -237,6 +245,52 @@ export default function Home() {
     document.body.removeChild(link);
   };
 
+  // ── Gallery handlers ────────────────────────────────────────────────────
+  const handleSave = useCallback(() => {
+    if (!canvasInstance) return;
+    setSaveToast("saving");
+
+    // Low-res thumbnail (25%)
+    const thumbnail = canvasInstance.toDataURL({
+      format: "png",
+      quality: 0.7,
+      multiplier: 0.25,
+    });
+    const canvasJSON = JSON.stringify(canvasInstance.toJSON());
+    const id = saveArtwork(currentArtworkId, canvasJSON, thumbnail);
+    setCurrentArtworkId(id);
+
+    setSaveToast("saved");
+    setTimeout(() => setSaveToast(""), 2000);
+  }, [canvasInstance, currentArtworkId, saveArtwork]);
+
+  const handleResume = useCallback(
+    (artwork: { id: string; canvasJSON: string }) => {
+      if (!canvasInstance) return;
+      canvasInstance.loadFromJSON(artwork.canvasJSON, () => {
+        canvasInstance.renderAll();
+        setCurrentArtworkId(artwork.id);
+        setShowGallery(false);
+        // Reset history with the loaded state
+        setHistory([artwork.canvasJSON]);
+      });
+    },
+    [canvasInstance],
+  );
+
+  const handleNewArtwork = useCallback(() => {
+    if (canvasInstance) {
+      canvasInstance.clear();
+      canvasInstance.backgroundColor = "#f3f4f6";
+      canvasInstance.renderAll();
+      const json = JSON.stringify(canvasInstance.toJSON());
+      setHistory([json]);
+    }
+    setCurrentArtworkId(null);
+    setShowGallery(false);
+  }, [canvasInstance]);
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!canvasInstance || !e.target.files?.[0]) return;
     const file = e.target.files[0];
@@ -259,7 +313,7 @@ export default function Home() {
   };
 
   // Still detecting environment
-  if (isInMiniApp === null && !initError) {
+  if (isInMiniApp === null && !initError && production) {
     return (
       <div className="flex fixed inset-0 z-50 bg-slate-950 text-white flex-col items-center justify-center gap-5">
         <div className="w-20 h-20 rounded-2xl bg-slate-800/80 border border-slate-700 shadow-2xl flex items-center justify-center p-3 animate-pulse">
@@ -293,7 +347,7 @@ export default function Home() {
   }
 
   // Not inside Base App
-  if (!isInMiniApp || initError) {
+  if ((!isInMiniApp || initError) && production) {
     return (
       <div className="flex fixed inset-0 z-50 bg-slate-950 text-white flex-col items-center justify-center p-8 text-center gap-6">
         <div className="relative">
@@ -316,20 +370,20 @@ export default function Home() {
               : "AuraSynQ is only available inside the Base app. Open it there to continue."}
           </p>
         </div>
-        <div className="px-4 py-2 rounded-full border border-slate-700 bg-slate-800/60 text-xs text-slate-500 font-mono">
-          <Link
-            href="https://play.google.com/store/search?q=base&c=apps&hl=en"
-            target="_blank"
-          >
-            Base App
-          </Link>
-        </div>
+        <a
+          href="https://play.google.com/store/search?q=base&c=apps&hl=en"
+          target="_blank"
+          rel="noreferrer"
+          className="px-4 py-2 rounded-full border border-slate-700 bg-slate-800/60 text-xs text-slate-500 font-mono hover:text-slate-300 transition-colors"
+        >
+          Get the Base App
+        </a>
       </div>
     );
   }
 
   // Inside MiniApp but user context not yet loaded
-  if (!user) {
+  if (!user && production) {
     return (
       <div className="flex fixed inset-0 z-50 bg-slate-950 text-white flex-col items-center justify-center gap-5">
         <div className="w-20 h-20 rounded-2xl bg-slate-800/80 border border-slate-700 shadow-2xl flex items-center justify-center p-3 animate-pulse">
@@ -398,31 +452,22 @@ export default function Home() {
 
       {/* --- LEFT PANEL: TOOLS & ACTIONS --- */}
       <div
-        className={`absolute top-4 left-4 flex flex-col gap-4 z-20 transition-all duration-300 ease-in-out items-center ${showUI ? "translate-x-0 opacity-100" : "-translate-x-20 opacity-0 pointer-events-none"}`}
+        className={`absolute top-4 left-2 flex flex-col gap-2 z-20 transition-all duration-300 ease-in-out items-center ${showUI ? "translate-x-0 opacity-100" : "-translate-x-20 opacity-0 pointer-events-none"}`}
       >
-        {/* App Logo */}
-        <div className="w-16 h-16 rounded-2xl bg-slate-900/90 backdrop-blur-md shadow-xl border border-slate-700 p-2 flex items-center justify-center">
-          <img
-            src="/icon.png"
-            alt="Logo"
-            className="w-full h-full object-contain"
-          />
-        </div>
-
         {/* Main Toolbar */}
-        <div className="bg-slate-900/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-700 flex flex-col gap-4 w-16 items-center text-slate-200">
+        <div className="bg-slate-900/95 backdrop-blur-md p-2 rounded-2xl shadow-xl border border-slate-700 flex flex-col gap-1.5 w-12 items-center text-slate-200">
           {/* Undo / Clear */}
-          <div className="flex flex-col gap-2 w-full pb-2 border-b border-slate-700/50">
+          <div className="flex flex-col gap-1 w-full pb-1.5 border-b border-slate-700/50">
             <button
               onClick={handleUndo}
               title="Undo"
               disabled={history.length <= 1}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${history.length > 1 ? "bg-slate-800 hover:bg-slate-700 text-white" : "text-slate-600 cursor-not-allowed"}`}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${history.length > 1 ? "bg-slate-800 hover:bg-slate-700 text-white" : "text-slate-600 cursor-not-allowed"}`}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
+                width="15"
+                height="15"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -437,12 +482,12 @@ export default function Home() {
             <button
               onClick={handleClear}
               title="Clear"
-              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all bg-slate-800 text-rose-400 hover:bg-rose-500/20 hover:text-rose-400"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-slate-800 text-rose-400 hover:bg-rose-500/20"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
+                width="15"
+                height="15"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -460,16 +505,16 @@ export default function Home() {
           </div>
 
           {/* Mode Switcher */}
-          <div className="flex flex-col gap-2 w-full">
+          <div className="flex flex-col gap-1 w-full">
             <button
               onClick={() => setIsDrawing(true)}
               title="Draw"
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDrawing ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-400 hover:bg-slate-800 hover:text-white"}`}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${isDrawing ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-400 hover:bg-slate-800 hover:text-white"}`}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -486,12 +531,12 @@ export default function Home() {
             <button
               onClick={() => setIsDrawing(false)}
               title="Select"
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${!isDrawing ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-400 hover:bg-slate-800 hover:text-white"}`}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${!isDrawing ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" : "text-slate-400 hover:bg-slate-800 hover:text-white"}`}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -505,23 +550,23 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="w-8 h-[1px] bg-slate-700/50" />
+          <div className="w-6 h-px bg-slate-700/50" />
 
           {/* Brush Types */}
           {isDrawing && (
-            <div className="flex flex-col gap-2 w-full">
+            <div className="flex flex-col gap-1 w-full">
               {["pencil", "circle", "spray", "eraser"].map((type) => (
                 <button
                   key={type}
                   onClick={() => setBrushType(type as any)}
                   title={type}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${brushType === type ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-slate-800 hover:text-white"}`}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${brushType === type ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-slate-800 hover:text-white"}`}
                 >
                   {type === "pencil" && (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
+                      width="15"
+                      height="15"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -536,8 +581,8 @@ export default function Home() {
                   {type === "circle" && (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
+                      width="15"
+                      height="15"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -551,8 +596,8 @@ export default function Home() {
                   {type === "spray" && (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
+                      width="15"
+                      height="15"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -575,8 +620,8 @@ export default function Home() {
                   {type === "eraser" && (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
+                      width="15"
+                      height="15"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -597,12 +642,81 @@ export default function Home() {
             </div>
           )}
 
-          <div className="w-8 h-[1px] bg-slate-700/50" />
+          <div className="w-6 h-px bg-slate-700/50" />
+
+          {/* Save to Gallery */}
+          <button
+            onClick={handleSave}
+            title="Save to Gallery"
+            disabled={saveToast === "saving"}
+            className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-all text-slate-400 hover:bg-indigo-500/20 hover:text-indigo-400"
+          >
+            {saveToast === "saved" ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-emerald-400"
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+                <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" />
+                <path d="M7 3v4a1 1 0 0 0 1 1h7" />
+              </svg>
+            )}
+          </button>
+
+          {/* Open Gallery */}
+          <button
+            onClick={() => setShowGallery(true)}
+            title="Gallery"
+            className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-all text-slate-400 hover:bg-slate-800 hover:text-white"
+          >
+            {artworks.length > 0 && (
+              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            )}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18" />
+              <path d="M9 21V9" />
+            </svg>
+          </button>
+
+          <div className="w-6 h-px bg-slate-700/50" />
 
           {/* Import / Export Icons */}
-          <div className="flex flex-col gap-2 w-full">
+          <div className="flex flex-col gap-1 w-full">
             <label
-              className="cursor-pointer w-10 h-10 rounded-xl flex items-center justify-center transition-all text-slate-400 hover:bg-slate-800 hover:text-white"
+              className="cursor-pointer w-8 h-8 rounded-lg flex items-center justify-center transition-all text-slate-400 hover:bg-slate-800 hover:text-white"
               title="Import Image"
             >
               <input
@@ -613,8 +727,8 @@ export default function Home() {
               />
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
+                width="15"
+                height="15"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -629,13 +743,13 @@ export default function Home() {
             </label>
             <button
               onClick={handleExport}
-              className="w-10 h-10 rounded-xl flex items-center justify-center transition-all text-slate-400 hover:bg-slate-800 hover:text-white"
+              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all text-slate-400 hover:bg-slate-800 hover:text-white"
               title="Export Image"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
+                width="15"
+                height="15"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -648,6 +762,20 @@ export default function Home() {
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
             </button>
+          </div>
+
+          {/* Logo / Trademark */}
+          <div className="pt-1 mt-0.5 border-t border-slate-700/50 w-full flex justify-center">
+            <div
+              className="w-8 h-8 rounded-lg bg-slate-800/80 flex items-center justify-center p-1 opacity-70 hover:opacity-100 transition-opacity"
+              title="AuraSynQ"
+            >
+              <img
+                src="/icon.png"
+                alt="AuraSynQ"
+                className="w-full h-full object-contain"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -793,6 +921,38 @@ export default function Home() {
           </button>
         </div>
       </div>
+
+      {/* Save Toast */}
+      <div
+        className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-slate-900 border border-slate-700 text-xs font-semibold flex items-center gap-2 shadow-xl transition-all duration-300 ${saveToast === "saved" ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-emerald-400"
+        >
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+        <span className="text-white">Saved to gallery</span>
+      </div>
+
+      {/* Gallery Modal */}
+      <GalleryModal
+        isOpen={showGallery}
+        artworks={artworks}
+        currentArtworkId={currentArtworkId}
+        onClose={() => setShowGallery(false)}
+        onResume={handleResume}
+        onDelete={deleteArtwork}
+        onNewArtwork={handleNewArtwork}
+      />
     </main>
   );
 }
