@@ -2,6 +2,7 @@
 
 import sdk from "@farcaster/miniapp-sdk";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import React, { useState, useRef, useEffect } from "react";
 
 // Dynamic import for Canvas to avoid SSR issues with Fabric.js
@@ -312,11 +313,16 @@ export default function Home() {
           <p className="text-slate-400 max-w-xs text-sm leading-relaxed">
             {initError
               ? initError
-              : "AuraSynQ is only available inside the Farcaster app. Open it there to continue."}
+              : "AuraSynQ is only available inside the Base app. Open it there to continue."}
           </p>
         </div>
         <div className="px-4 py-2 rounded-full border border-slate-700 bg-slate-800/60 text-xs text-slate-500 font-mono">
-          farcaster://miniapp
+          <Link
+            href="https://play.google.com/store/search?q=base&c=apps&hl=en"
+            target="_blank"
+          >
+            Base App
+          </Link>
         </div>
       </div>
     );
